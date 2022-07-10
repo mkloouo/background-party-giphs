@@ -3,44 +3,72 @@ import { useEffect, useState, useRef } from "react";
 
 import { Gif } from "@giphy/react-components";
 import { GiphyFetch } from "@giphy/js-fetch-api";
-import config from "./config.json";
+import useWindowDimensions from "./useWindowDimensions";
 
-// use @giphy/js-fetch-api to fetch gifs, instantiate with your api key
-const gf = new GiphyFetch(config.giphy.apiKey);
+const gf = new GiphyFetch(process.env.REACT_APP_GIPHY_API_KEY);
+const DEFAULT_INTERVAL_IN_MINUTES = 10;
+const UPDATE_BACKGROUND_OPTIONS_RETRY_IN_MINUTES = 10;
 
 function App() {
+  const windowDimensions = useWindowDimensions();
+
   const [gif, setGif] = useState(null);
   const offset = useRef(0);
 
+  const term = useRef("party");
+  const intervalInMs = useRef(DEFAULT_INTERVAL_IN_MINUTES * 100);
+
   useEffect(() => {
-    async function updateGif() {
-      // configure your fetch: fetch 10 gifs at a time as the user scrolls (offset is handled by the grid)
-      const res = await gf.search("party", {
-        limit: 1,
-        offset: offset.current,
-      });
+    async function updateBackgroundOptions() {
+      try {
+        const { term: newTerm, interval: newIntervalInMinutes } = await (
+          await fetch(
+            `${process.env.REACT_APP_MY_CHAT_BOT_URL}/background/options`
+          )
+        ).json();
 
-      offset.current += 1;
-
-      if (offset.current >= res.pagination.total_count) {
-        offset.current = 0;
+        term.current = newTerm ? newTerm : term.current;
+        intervalInMs.current = newIntervalInMinutes
+          ? newIntervalInMinutes * 100
+          : intervalInMs.current;
+      } catch (err) {
+        console.log(err);
       }
-
-      if (res.data.length === 0) {
-        setGif(null);
-      }
-
-      setGif(res.data[0]);
     }
 
-    const intervalId = setInterval(updateGif, 10000);
+    const intervalId = setInterval(
+      updateBackgroundOptions,
+      UPDATE_BACKGROUND_OPTIONS_RETRY_IN_MINUTES * 100
+    );
+    updateBackgroundOptions();
 
     return () => {
       clearInterval(intervalId);
     };
   }, []);
 
-  console.log(gif);
+  useEffect(() => {
+    async function updateGif() {
+      const gifRes = await gf.search(term.current, {
+        limit: 1,
+        offset: offset.current,
+      });
+
+      offset.current += 1;
+      if (offset.current >= gifRes.pagination.total_count) {
+        offset.current = 0;
+      }
+
+      setGif(gifRes.data[0]);
+    }
+
+    const intervalId = setInterval(updateGif, intervalInMs.current * 100);
+    updateGif();
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, []);
 
   if (!gif) {
     return null;
@@ -49,7 +77,11 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <Gif gif={gif} width={1920} />
+        <Gif
+          gif={gif}
+          width={windowDimensions.width}
+          height={windowDimensions.height}
+        />
       </header>
     </div>
   );
