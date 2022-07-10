@@ -5,7 +5,7 @@ import { Gif } from "@giphy/react-components";
 import { GiphyFetch } from "@giphy/js-fetch-api";
 import useWindowDimensions from "./useWindowDimensions";
 
-const gf = new GiphyFetch(process.env.REACT_APP_GIPHY_API_KEY);
+const gf = new GiphyFetch(process.env.GIPHY_API_KEY);
 const DEFAULT_INTERVAL_IN_MINUTES = 10;
 const UPDATE_BACKGROUND_OPTIONS_RETRY_IN_MINUTES = 10;
 
@@ -23,7 +23,7 @@ function App() {
       try {
         const { term: newTerm, interval: newIntervalInMinutes } = await (
           await fetch(
-            `${process.env.REACT_APP_MY_CHAT_BOT_URL}/background/options`
+            `${process.env.MY_CHAT_BOT_URL}/background/options`
           )
         ).json();
 
